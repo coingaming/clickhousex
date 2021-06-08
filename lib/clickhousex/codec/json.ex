@@ -45,10 +45,12 @@ defmodule Clickhousex.Codec.JSON do
             for {raw_value, column_type} <- Enum.zip(row, column_types) do
               to_native(column_type, raw_value)
             end
-            |> List.to_tuple()
           end
 
         {:ok, %{column_names: column_names, rows: rows, count: row_count}}
+
+      _ ->
+        {:ok, %{column_names: [], rows: [], count: 0}}
     end
   end
 
@@ -102,12 +104,13 @@ defmodule Clickhousex.Codec.JSON do
   end
 
   defp to_date(date_string) do
-    [year, month, day] =
-      date_string
-      |> String.split("-")
-      |> Enum.map(&String.to_integer/1)
-
-    Date.new(year, month, day)
+    date_string
+    |> String.split("-")
+    |> Enum.map(&String.to_integer/1)
+    |> case do
+      [0, 0, 0] -> Date.new(1970, 1, 1)
+      [year, month, day] -> Date.new(year, month, day)
+    end
   end
 
   defp to_time(time_string) do

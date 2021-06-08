@@ -32,6 +32,7 @@ defimpl DBConnection.Query, for: Clickhousex.Query do
   @select_query_regex ~r/\bSELECT\b/i
   @insert_query_regex ~r/\bINSERT\b/i
   @alter_query_regex ~r/\bALTER\b/i
+  @show_query_regex ~r/\bSHOW\b/i
 
   @codec Application.get_env(:clickhousex, :codec, Clickhousex.Codec.JSON)
 
@@ -64,7 +65,7 @@ defimpl DBConnection.Query, for: Clickhousex.Query do
     encoded_params = @codec.encode(query, query_part, params)
 
     HTTPRequest.new()
-    |> HTTPRequest.with_query_string_data(encoded_params)
+    |> HTTPRequest.with_post_data(encoded_params)
   end
 
   def decode(_query, result, _opts) do
@@ -88,8 +89,10 @@ defimpl DBConnection.Query, for: Clickhousex.Query do
 
   defp query_type(statement) do
     with {:create, false} <- {:create, Regex.match?(@create_query_regex, statement)},
-         {:select, false} <- {:select, Regex.match?(@select_query_regex, statement)},
-         {:insert, false} <- {:insert, Regex.match?(@insert_query_regex, statement)},
+         {:insert, false} <-
+           {:insert, Regex.match?(@insert_query_regex, statement) and Regex.match?(@values_regex, statement)},
+         {:select, false} <-
+           {:select, (Regex.match?(@select_query_regex, statement) and not Regex.match?(@insert_query_regex, statement)) or Regex.match?(@show_query_regex, statement)},
          {:alter, false} <- {:alter, Regex.match?(@alter_query_regex, statement)} do
       :unknown
     else

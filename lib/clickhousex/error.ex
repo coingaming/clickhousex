@@ -15,6 +15,10 @@ defmodule Clickhousex.Error do
     %__MODULE__{message: "Transport Error: #{inspect(reason)}"}
   end
 
+  def exception(%Mint.HTTPError{reason: reason}) do
+    %__MODULE__{message: "HTTP Error: #{inspect(reason)}"}
+  end
+
   def exception(message) do
     message = to_string(message)
 
