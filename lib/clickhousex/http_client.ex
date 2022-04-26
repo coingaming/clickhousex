@@ -65,13 +65,13 @@ defmodule Clickhousex.HTTPClient do
     Mint.HTTP.close(conn)
   end
 
-  def request(conn, query, request, timeout, nil, _password, database) do
-    post(conn, query, request, database, timeout: timeout, recv_timeout: timeout)
+  def request(conn, query, request, nil, _password, database, request_opts) do
+    post(conn, query, request, database, request_opts)
   end
 
-  def request(conn, query, request, timeout, username, password, database) do
-    opts = [basic_auth: {username, password}, timeout: timeout, recv_timeout: timeout]
-    post(conn, query, request, database, opts)
+  def request(conn, query, request, username, password, database, request_opts) do
+    request_opts = Keyword.put(request_opts, :basic_auth, {username, password})
+    post(conn, query, request, database, request_opts)
   end
 
   defp post(conn, query, request, database, opts) do
@@ -83,13 +83,20 @@ defmodule Clickhousex.HTTPClient do
         query: IO.iodata_to_binary(request.query_string_data)
       })
 
-    path = "/?#{query_string}"
+    async_query_part =
+      if opts[:async_insert] do
+        wait_value = if opts[:wait_for_async_insert], do: 1, else: 0
+        "&async_insert=1&wait_for_async_insert=#{wait_value}"
+      else
+        ""
+      end
+
+    path = "/?#{query_string}#{async_query_part}"
     post_body = maybe_append_format(query, request)
     headers = headers(opts, post_body)
 
     with {:ok, conn, ref} <- Mint.HTTP.request(conn, "POST", path, headers, post_body),
-         {:ok, conn, %Response{} = response} <-
-           receive_response(conn, recv_timeout, Response.new(ref)) do
+         {:ok, conn, %Response{} = response} <- receive_response(conn, recv_timeout, Response.new(ref)) do
       decode_response(conn, query, response)
     else
       {:error, conn, error} ->
@@ -98,6 +105,7 @@ defmodule Clickhousex.HTTPClient do
       {:error, conn, error, _messages} ->
         {:error, conn, error}
     end
+
   end
 
   defp decode_response(conn, %Query{type: :select}, %Response{} = response) do
