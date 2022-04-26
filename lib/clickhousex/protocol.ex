@@ -31,10 +31,13 @@ defmodule Clickhousex.Protocol do
     username = opts[:username]
     password = opts[:password]
     timeout = opts[:timeout] || Clickhousex.timeout()
+    async_insert = opts[:async_insert] || false
+    wait_for_async_insert = opts[:wait_for_async_insert] || false
 
     {:ok, conn} = Client.connect(scheme, hostname, port)
 
-    response = Client.request(conn, @ping_query, @ping_params, timeout, username, password, database)
+    request_opts = [timeout: timeout, recv_timeout: timeout]
+    response = Client.request(conn, @ping_query, @ping_params, username, password, database, request_opts)
 
     with {:ok, conn, {:selected, _, _}} <- response do
       conn_opts = [
@@ -44,7 +47,9 @@ defmodule Clickhousex.Protocol do
         database: database,
         username: username,
         password: password,
-        timeout: timeout
+        timeout: timeout,
+        async_insert: async_insert,
+        wait_for_async_insert: wait_for_async_insert
       ]
 
       state = %__MODULE__{
@@ -161,13 +166,19 @@ defmodule Clickhousex.Protocol do
     password = state.conn_opts[:password]
     timeout = state.conn_opts[:timeout]
     database = state.conn_opts[:database]
+    async_insert = state.conn_opts[:async_insert]
+    wait_for_async_insert = state.conn_opts[:wait_for_async_insert]
 
-    res =
-      conn
-      |> Client.request(query, params, timeout, username, password, database)
-      |> handle_errors()
+    request_opts = [
+      timeout: timeout,
+      recv_timeout: timeout,
+      async_insert: async_insert,
+      wait_for_async_insert: wait_for_async_insert
+    ]
 
-    case res do
+    res = Client.request(conn, query, params, username, password, database, request_opts)
+
+    case handle_errors(res) do
       {:error, conn, %Error{code: :connection_exception} = reason} ->
         {:disconnect, reason, %{state | conn: conn}}
 
