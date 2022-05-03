@@ -10,7 +10,7 @@ defmodule Clickhousex.Codec.JSON do
 
   @use_decimal Application.compile_env(:clickhousex, :use_decimal, false)
   @jason_opts if @use_decimal, do: [floats: :decimals], else: []
-  @types_regex ~r/(?<column>[\w]+) (?<type>[\w]+\([\w0-9\(, ]*\)*|[\w]+)/m
+  @types_regex ~r/(?<column>[\w]+) (?<type>[\w]+\([\w0-9\(, ]*\)*|[\w]+)|(?<nameless_type>[\w]+\([\w0-9\(, ]*\)*|[\w]+)/m
 
   alias Clickhousex.Codec
   @behaviour Codec
@@ -78,8 +78,12 @@ defmodule Clickhousex.Codec.JSON do
     |> String.replace_suffix(")", "")
     |> then(&Regex.scan(@types_regex, &1, capture: :all_names))
     |> Enum.with_index()
-    |> Enum.reduce(%{}, fn {[column, type], index}, acc ->
-      Map.put(acc, column, to_native(type, Enum.at(value, index)))
+    |> Enum.map(fn
+      {[_column, "", type], index} ->
+        to_native(type, Enum.at(value, index))
+
+      {["", type, ""], index} ->
+        to_native(type, Enum.at(value, index))
     end)
   end
 
@@ -88,8 +92,7 @@ defmodule Clickhousex.Codec.JSON do
     [key_type, value_type] = String.split(map_types, ", ", parts: 2)
 
     value
-    |> Enum.map(fn {key, value} -> {to_native(key_type, key), to_native(value_type, value)} end)
-    |> Map.new()
+    |> Enum.reduce(%{}, fn {key, value}, acc -> Map.put(acc, to_native(key_type, key), to_native(value_type, value)) end)
   end
 
   defp to_native("Float" <> _, value) when is_integer(value) do
