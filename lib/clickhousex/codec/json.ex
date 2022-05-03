@@ -10,10 +10,12 @@ defmodule Clickhousex.Codec.JSON do
 
   @use_decimal Application.compile_env(:clickhousex, :use_decimal, false)
   @jason_opts if @use_decimal, do: [floats: :decimals], else: []
+  @types_regex ~r/(?<column>[\w]+) (?<type>[\w]+\([\w0-9\(, ]*\)*|[\w]+)/m
 
   alias Clickhousex.Codec
   @behaviour Codec
 
+  @impl Codec
   defdelegate encode(query, replacements, params), to: Codec.Values
 
   @impl Codec
@@ -71,11 +73,30 @@ defmodule Clickhousex.Codec.JSON do
     Enum.map(value, &to_native(type, &1))
   end
 
+  defp to_native(<<"Tuple(", types::binary>>, value) do
+    types
+    |> String.replace_suffix(")", "")
+    |> then(&Regex.scan(@types_regex, &1, capture: :all_names))
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {[column, type], index}, acc ->
+      Map.put(acc, column, to_native(type, Enum.at(value, index)))
+    end)
+  end
+
+  defp to_native(<<"Map(", map_types::binary>>, value) do
+    map_types = String.replace_suffix(map_types, ")", "")
+    [key_type, value_type] = String.split(map_types, ", ", parts: 2)
+
+    value
+    |> Enum.map(fn {key, value} -> {to_native(key_type, key), to_native(value_type, value)} end)
+    |> Map.new()
+  end
+
   defp to_native("Float" <> _, value) when is_integer(value) do
     1.0 * value
   end
 
-  defp to_native("Int64", value) do
+  defp to_native("Int64", value) when is_bitstring(value) do
     String.to_integer(value)
   end
 
@@ -102,7 +123,7 @@ defmodule Clickhousex.Codec.JSON do
     String.to_integer(value)
   end
 
-  defp to_native("Decimal" <> _, value) when @use_decimal and is_bitstring(value) do
+  defp to_native("Decimal" <> _, value) when @use_decimal and (is_bitstring(value) or is_integer(value)) do
     Decimal.new(value)
   end
 
