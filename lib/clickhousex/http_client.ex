@@ -105,7 +105,6 @@ defmodule Clickhousex.HTTPClient do
       {:error, conn, error, _messages} ->
         {:error, conn, error}
     end
-
   end
 
   defp decode_response(conn, %Query{type: :select}, %Response{} = response) do

@@ -92,7 +92,9 @@ defimpl DBConnection.Query, for: Clickhousex.Query do
          {:insert, false} <-
            {:insert, Regex.match?(@insert_query_regex, statement) and Regex.match?(@values_regex, statement)},
          {:select, false} <-
-           {:select, (Regex.match?(@select_query_regex, statement) and not Regex.match?(@insert_query_regex, statement)) or Regex.match?(@show_query_regex, statement)},
+           {:select,
+            (Regex.match?(@select_query_regex, statement) and not Regex.match?(@insert_query_regex, statement)) or
+              Regex.match?(@show_query_regex, statement)},
          {:alter, false} <- {:alter, Regex.match?(@alter_query_regex, statement)} do
       :unknown
     else

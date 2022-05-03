@@ -8,9 +8,14 @@ defmodule Clickhousex.Codec.JSON do
   [2]: https://clickhouse.tech/docs/en/interfaces/formats/#jsoncompact
   """
 
+  @use_decimal Application.compile_env(:clickhousex, :use_decimal, false)
+  @jason_opts if @use_decimal, do: [floats: :decimals], else: []
+  @types_regex ~r/(?<column>[\w]+) (?<type>[\w]+\([\w0-9\(, ]*\)*|[\w]+)|(?<nameless_type>[\w]+\([\w0-9\(, ]*\)*|[\w]+)/m
+
   alias Clickhousex.Codec
   @behaviour Codec
 
+  @impl Codec
   defdelegate encode(query, replacements, params), to: Codec.Values
 
   @impl Codec
@@ -35,7 +40,7 @@ defmodule Clickhousex.Codec.JSON do
 
   @impl Codec
   def decode(response) do
-    case Jason.decode(response) do
+    case Jason.decode(response, @jason_opts) do
       {:ok, %{"meta" => meta, "data" => data, "rows" => row_count}} ->
         column_names = Enum.map(meta, & &1["name"])
         column_types = Enum.map(meta, & &1["type"])
@@ -68,11 +73,33 @@ defmodule Clickhousex.Codec.JSON do
     Enum.map(value, &to_native(type, &1))
   end
 
+  defp to_native(<<"Tuple(", types::binary>>, value) do
+    types
+    |> String.replace_suffix(")", "")
+    |> then(&Regex.scan(@types_regex, &1, capture: :all_names))
+    |> Enum.with_index()
+    |> Enum.map(fn
+      {[_column, "", type], index} ->
+        to_native(type, Enum.at(value, index))
+
+      {["", type, ""], index} ->
+        to_native(type, Enum.at(value, index))
+    end)
+  end
+
+  defp to_native(<<"Map(", map_types::binary>>, value) do
+    map_types = String.replace_suffix(map_types, ")", "")
+    [key_type, value_type] = String.split(map_types, ", ", parts: 2)
+
+    value
+    |> Enum.reduce(%{}, fn {key, value}, acc -> Map.put(acc, to_native(key_type, key), to_native(value_type, value)) end)
+  end
+
   defp to_native("Float" <> _, value) when is_integer(value) do
     1.0 * value
   end
 
-  defp to_native("Int64", value) do
+  defp to_native("Int64", value) when is_bitstring(value) do
     String.to_integer(value)
   end
 
@@ -97,6 +124,14 @@ defmodule Clickhousex.Codec.JSON do
 
   defp to_native("Int" <> _, value) when is_bitstring(value) do
     String.to_integer(value)
+  end
+
+  defp to_native("Decimal" <> _, value) when @use_decimal and (is_bitstring(value) or is_integer(value)) do
+    Decimal.new(value)
+  end
+
+  defp to_native("Decimal" <> _, value) when is_bitstring(value) do
+    String.to_float(value)
   end
 
   defp to_native(_, value) do

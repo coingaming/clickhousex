@@ -1,3 +1,3 @@
-use Mix.Config
+import Config
 
-config :clickhousex, codec: Clickhousex.Codec.RowBinary
+config :clickhousex, codec: Clickhousex.Codec.RowBinary, use_decimal: true
