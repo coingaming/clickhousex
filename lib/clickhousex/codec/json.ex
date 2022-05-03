@@ -8,6 +8,11 @@ defmodule Clickhousex.Codec.JSON do
   [2]: https://clickhouse.tech/docs/en/interfaces/formats/#jsoncompact
   """
 
+  @use_decimal Application.compile_env(:clickhousex, :use_decimal, false)
+  @jason_opts if @use_decimal, do: [floats: :decimals], else: []
+
+  def use_decimal(), do: @use_decimal
+
   alias Clickhousex.Codec
   @behaviour Codec
 
@@ -35,7 +40,7 @@ defmodule Clickhousex.Codec.JSON do
 
   @impl Codec
   def decode(response) do
-    case Jason.decode(response) do
+    case Jason.decode(response, @jason_opts) do
       {:ok, %{"meta" => meta, "data" => data, "rows" => row_count}} ->
         column_names = Enum.map(meta, & &1["name"])
         column_types = Enum.map(meta, & &1["type"])
@@ -97,6 +102,14 @@ defmodule Clickhousex.Codec.JSON do
 
   defp to_native("Int" <> _, value) when is_bitstring(value) do
     String.to_integer(value)
+  end
+
+  defp to_native("Decimal" <> _, value) when @use_decimal and is_bitstring(value) do
+    Decimal.new(value)
+  end
+
+  defp to_native("Decimal" <> _, value) when is_bitstring(value) do
+    String.to_float(value)
   end
 
   defp to_native(_, value) do

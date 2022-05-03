@@ -187,7 +187,7 @@ defmodule Clickhousex.Codec.ExtractorTest do
     test "it should be able to extract nullable ints" do
       for base_type <- ~w(i64 i32 i16 i8 u64 u32 u16 u8)a,
           list_type = {:list, {:nullable, base_type}} do
-        values = [:random.uniform(127), nil, :random.uniform(127), nil]
+        values = [:rand.uniform(127), nil, :rand.uniform(127), nil]
         s = encode(list_type, values)
         assert {:ok, values, <<>>} == Extractors.extract(s, list_type)
       end

@@ -9,7 +9,13 @@ defmodule Clickhousex.Mixfile do
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       package: package(),
-      source_url: "https://github.com/clickhouse-elixir/clickhousex"
+      source_url: "https://github.com/clickhouse-elixir/clickhousex",
+      dialyzer: [
+	plt_add_deps: :apps_direct,
+	plt_add_apps: [
+	  :decimal
+	]
+      ]
     ]
   end
 
@@ -30,10 +36,12 @@ defmodule Clickhousex.Mixfile do
       {:db_connection, "~> 2.0"},
       {:mint, "~> 1.0"},
       {:castore, "~> 0.1"},
-      {:jason, "~> 1.0"},
+      {:jason, "~> 1.3"},
+      {:decimal, "~> 2.0", optional: true},
       {:ex_doc, "~> 0.22", only: :dev},
       {:benchee, "~> 1.0", only: [:dev, :test]},
-      {:credo, "~> 1.5", only: :dev}
+      {:credo, "~> 1.5", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       # {:nicene, "~> 0.4.0", only: :dev}
     ]
   end
