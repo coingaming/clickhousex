@@ -11,10 +11,10 @@ defmodule Clickhousex.Mixfile do
       package: package(),
       source_url: "https://github.com/clickhouse-elixir/clickhousex",
       dialyzer: [
-	plt_add_deps: :apps_direct,
-	plt_add_apps: [
-	  :decimal
-	]
+        plt_add_deps: :apps_direct,
+        plt_add_apps: [
+          :decimal
+        ]
       ]
     ]
   end
@@ -41,7 +41,7 @@ defmodule Clickhousex.Mixfile do
       {:ex_doc, "~> 0.22", only: :dev},
       {:benchee, "~> 1.0", only: [:dev, :test]},
       {:credo, "~> 1.5", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false}
       # {:nicene, "~> 0.4.0", only: :dev}
     ]
   end

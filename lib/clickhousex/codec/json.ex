@@ -11,8 +11,6 @@ defmodule Clickhousex.Codec.JSON do
   @use_decimal Application.compile_env(:clickhousex, :use_decimal, false)
   @jason_opts if @use_decimal, do: [floats: :decimals], else: []
 
-  def use_decimal(), do: @use_decimal
-
   alias Clickhousex.Codec
   @behaviour Codec
 
