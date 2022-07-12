@@ -79,10 +79,13 @@ defmodule Clickhousex.Codec.JSON do
     |> then(&Regex.scan(@types_regex, &1, capture: :all_names))
     |> Enum.with_index()
     |> Enum.map(fn
-      {[_column, "", type], index} ->
+      {["", type, ""], index} ->
         to_native(type, Enum.at(value, index))
 
-      {["", type, ""], index} ->
+      {[column, "", type], _index} when is_map(value) ->
+        to_native(type, Map.get(value, column))
+
+      {[_column, "", type], index} when is_list(value) ->
         to_native(type, Enum.at(value, index))
     end)
   end
