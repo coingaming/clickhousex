@@ -137,8 +137,24 @@ defmodule Clickhousex.Codec.JSON do
     String.to_float(value)
   end
 
+  defp to_native(<<"SimpleAggregateFunction(", type::binary>>, value) do
+    do_aggregate_function(type, value)
+  end
+
+  defp to_native(<<"AggregateFunction(", type::binary>>, value) do
+    do_aggregate_function(type, value)
+  end
+
   defp to_native(_, value) do
     value
+  end
+
+  defp do_aggregate_function(type, value) do
+    type = String.replace_suffix(type, ")", "")
+    [_, inner_type] = String.split(type, ",", parts: 2, trim: true)
+    inner_type = String.trim(inner_type)
+
+    to_native(inner_type, value)
   end
 
   defp to_date(date_string) do
